@@ -2,13 +2,16 @@ import os
 from langchain_voyageai import VoyageAIEmbeddings
 from qdrant_client import QdrantClient
 from langchain_qdrant import QdrantVectorStore
-from langchain_google_genai import GoogleGenerativeAI
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langgraph.graph import START, StateGraph
 from typing_extensions import List, TypedDict
 from langchain_core.documents import Document
 from dotenv import load_dotenv
 import datetime
+from typing import Literal, Iterator
+from pydantic import SecretStr
 load_dotenv()
 
 
@@ -22,12 +25,12 @@ class SimpleGuidedRag:
     QDRANT_CLOUD_URL = os.environ["QDRANT_CLOUD_URL"]
     QDRANT_CLOUD_API_KEY = os.environ["QDRANT_CLOUD_API_KEY"]
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-    VOYAGE_LEGALAID_API_KEY = os.getenv("VOYAGE_LEGALAID_API_KEY")
+    VOYAGE_LEGALAID_API_KEY: SecretStr = os.getenv("VOYAGE_LEGALAID_API_KEY")
     GOOGLE_API_KEY = os.getenv("GOOGLE_AI_API_KEY")
 
     def __init__(self):
         self.embeddings = VoyageAIEmbeddings(model="voyage-law-2",
-                                             api_key=SimpleGuidedRag.VOYAGE_LEGALAID_API_KEY)
+                                             api_key=SimpleGuidedRag.VOYAGE_LEGALAID_API_KEY, batch_size=1)
 
         self.client = QdrantClient(url=SimpleGuidedRag.QDRANT_CLOUD_URL,
                                    api_key=SimpleGuidedRag.QDRANT_CLOUD_API_KEY)
@@ -37,7 +40,7 @@ class SimpleGuidedRag:
                                               collection_name="legal_docs_voyage")
 
         # self.llm = ChatOpenAI(model="gpt-4o-mini", api_key=SimpleGuidedRag.OPENAI_API_KEY)
-        self.llm = GoogleGenerativeAI(model="gemini-2.0-flash", api_key=SimpleGuidedRag.GOOGLE_API_KEY)
+        self.llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", api_key=SimpleGuidedRag.GOOGLE_API_KEY)
 
         self.system_prompt = ("You are a legal assistant of a lawyer." 
                               "Use only the following pieces of retrieved context to answer the question." 
@@ -87,13 +90,17 @@ class SimpleGuidedRag:
             return {"answer": response0}
         return generate
 
-    def chat(self, prompt_text: str) -> str:
+    def chat(self, prompt_text: str, mode: Literal["updates", "messages"]) -> Iterator[dict]:
         graph_builder = StateGraph(State).add_sequence([self.retrieve(), self.generate()])
         graph_builder.add_edge(START, "retrieve")
         graph = graph_builder.compile()
 
         # prompt_text = """What are the things to be considered in invoking and proving psychological incapacity?"""
         print(f"Question: {prompt_text}\n\n\n")
-        response = graph.invoke({"question": prompt_text})
+        ###
+        # stream_mode="updates" returns updates to the state made by the node.
+        ###
+        response = graph.stream({"question": prompt_text}, stream_mode=mode)
         # invoke is the entry point of the graph passing a dict.
-        return response["answer"]
+
+        return response

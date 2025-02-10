@@ -1,9 +1,8 @@
 import datetime
 from typing import Union
 import markdown
-from fastapi import FastAPI, WebSocket
 from simple_guided_rag import SimpleGuidedRag
-
+import json
 from fastapi import FastAPI, WebSocket
 
 app = FastAPI()
@@ -37,11 +36,25 @@ async def websocket_endpoint(websocket: WebSocket):
     while True:
         data = await websocket.receive_text()
         print(f"Received at {datetime.datetime.now().strftime("%H:%M:%S")}: {data}.")
-        response = markdown.markdown(rag.chat(data))
-        await websocket.send_text(f"{response}")
-        print(f"Sent at {datetime.datetime.now().strftime("%H:%M:%S")}:")
-        print(f"{response}")
-
+        ###
+        # stream_mode="updates" returns updates to the state made by the node.
+        # stream_mode="messages" either taking too long, or hanging..?
+        ###
+        stream_mode = "messages"
+        outputs = rag.chat(data, stream_mode)
+        for output in outputs:
+            # response = markdown.markdown(output)
+            # await websocket.send_text(f"{response}")
+            if stream_mode == "updates":
+                if 'generate' in output.keys():
+                    raw_answer = output['generate']['answer'].content
+                    html_response = markdown.markdown(raw_answer)
+                    await websocket.send_text(html_response)
+                    print(f"{raw_answer}")
+            elif stream_mode == "messages":
+                raw_answer = output[0].content
+                await websocket.send_text(raw_answer)
+                print(f"{raw_answer}")
 
 
 @app.websocket("/ws0")
