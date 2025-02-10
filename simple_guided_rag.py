@@ -57,6 +57,12 @@ class SimpleGuidedRag:
 
     def generate(self):
         def get_source(doc: Document) -> str:
+            """
+            As of 2/10/2025, the docs we retrieve from Qdrant only have local file locations as source.
+            Need to extract some sort of name as source.
+            :param doc:
+            :return:
+            """
             src = doc.metadata["source"]
             src_arr = src.split("/")
             filename = src_arr[-1].split('.')[0:-1]

@@ -3,6 +3,9 @@ from typing import Union
 import markdown
 from fastapi import FastAPI, WebSocket
 from simple_guided_rag import SimpleGuidedRag
+
+from fastapi import FastAPI, WebSocket
+
 app = FastAPI()
 
 
@@ -38,3 +41,12 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.send_text(f"{response}")
         print(f"Sent at {datetime.datetime.now().strftime("%H:%M:%S")}:")
         print(f"{response}")
+
+
+
+@app.websocket("/ws0")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    while True:
+        data = await websocket.receive_text()
+        await websocket.send_text(f"Message text was: {data}")
