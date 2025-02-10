@@ -1,5 +1,6 @@
+import datetime
 from typing import Union
-
+import markdown
 from fastapi import FastAPI, WebSocket
 from simple_guided_rag import SimpleGuidedRag
 app = FastAPI()
@@ -20,9 +21,9 @@ async def websocket_endpoint0(websocket: WebSocket):
     await websocket.accept()
     while True:
         data = await websocket.receive_text()
-        print(f"Received: {data}.")
-        await websocket.send_text(f"Message text was: {data}")
-        print(f"Response sent was: Message text was: {data}")
+        print(f"Received on {datetime.datetime.now().strftime("%H:%M:%S")} {data}.")
+        await websocket.send_text(f"{data}")
+        print(f"{data}")
 
 
 @app.websocket("/ws")
@@ -32,7 +33,8 @@ async def websocket_endpoint(websocket: WebSocket):
     rag = SimpleGuidedRag()
     while True:
         data = await websocket.receive_text()
-        print(f"Received: {data}.")
-        response = rag.chat(data)
+        print(f"Received at {datetime.datetime.now().strftime("%H:%M:%S")}: {data}.")
+        response = markdown.markdown(rag.chat(data))
         await websocket.send_text(f"{response}")
+        print(f"Sent at {datetime.datetime.now().strftime("%H:%M:%S")}:")
         print(f"{response}")

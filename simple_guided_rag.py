@@ -2,7 +2,7 @@ import os
 from langchain_voyageai import VoyageAIEmbeddings
 from qdrant_client import QdrantClient
 from langchain_qdrant import QdrantVectorStore
-from langchain_openai import ChatOpenAI
+from langchain_google_genai import GoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langgraph.graph import START, StateGraph
 from typing_extensions import List, TypedDict
@@ -23,6 +23,7 @@ class SimpleGuidedRag:
     QDRANT_CLOUD_API_KEY = os.environ["QDRANT_CLOUD_API_KEY"]
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     VOYAGE_LEGALAID_API_KEY = os.getenv("VOYAGE_LEGALAID_API_KEY")
+    GOOGLE_API_KEY = os.getenv("GOOGLE_AI_API_KEY")
 
     def __init__(self):
         self.embeddings = VoyageAIEmbeddings(model="voyage-law-2",
@@ -35,7 +36,8 @@ class SimpleGuidedRag:
                                               embedding=self.embeddings,
                                               collection_name="legal_docs_voyage")
 
-        self.llm = ChatOpenAI(model="gpt-4o-mini", api_key=SimpleGuidedRag.OPENAI_API_KEY)
+        # self.llm = ChatOpenAI(model="gpt-4o-mini", api_key=SimpleGuidedRag.OPENAI_API_KEY)
+        self.llm = GoogleGenerativeAI(model="gemini-2.0-flash", api_key=SimpleGuidedRag.GOOGLE_API_KEY)
 
         self.system_prompt = ("You are a legal assistant of a lawyer." 
                               "Use only the following pieces of retrieved context to answer the question." 
@@ -47,7 +49,7 @@ class SimpleGuidedRag:
 
     def retrieve(self):
         def retrieve(state: State):
-            retrieved_docs = self.vector_store.similarity_search(state["question"], k=50)
+            retrieved_docs = self.vector_store.similarity_search(state["question"], k=100)
             print(f"retrieved {len(retrieved_docs)} documents")
             print("****")
             return {"context": retrieved_docs}
@@ -74,7 +76,9 @@ class SimpleGuidedRag:
             print(f"invoking llm at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             response0 = self.llm.invoke(messages)
             print(f"finished invocation at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            return {"answer": response0.content}
+            # google gemini returns the response in just response0
+            # openai returns the response in  response0.content
+            return {"answer": response0}
         return generate
 
     def chat(self, prompt_text: str) -> str:
